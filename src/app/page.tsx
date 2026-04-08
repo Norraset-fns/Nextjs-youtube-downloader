@@ -1,12 +1,11 @@
 'use client';
-import Link from 'next/link';
 import { useState } from 'react';
+import Link from 'next/link';
 
 interface VideoData {
   title: string;
   thumbnail: string;
   duration: string;
-  // 🎯 เปลี่ยนจาก number[] เป็น Object เพื่อรับขนาดไฟล์ด้วย
   resolutions: { res: number; size: string }[]; 
 }
 
@@ -19,6 +18,9 @@ export default function Home() {
   const [quality, setQuality] = useState<string>('');
   const [audioQuality, setAudioQuality] = useState<string>('320K');
   const [embedCover, setEmbedCover] = useState<boolean>(true);
+  
+  // 🎯 State สำหรับเช็คว่ากำลังคลิกปุ่มโหลด Video หรือ MP3 (เพื่อทำปุ่มหมุนๆ)
+  const [downloadingType, setDownloadingType] = useState<string | null>(null);
 
   const checkVideo = async () => {
     if (!url) return alert('กรุณาวางลิงก์ก่อนครับ');
@@ -36,7 +38,6 @@ export default function Home() {
       } else {
         setVideoData(data);
         if (data.resolutions && data.resolutions.length > 0) {
-          // 🎯 ดึง .res ออกมาใช้ตั้งค่าเริ่มต้น
           setQuality(data.resolutions[0].res.toString()); 
         }
         setStatus('✅ ดึงข้อมูลสำเร็จ! เลือกรูปแบบที่ต้องการด้านขวาได้เลย');
@@ -48,15 +49,28 @@ export default function Home() {
   };
 
   const downloadFile = (format: string) => {
-    setStatus('⏳ กำลังประมวลผลไฟล์... (รอสักครู่จนกว่าหน้าต่าง Save จะเด้งขึ้นมานะครับ)');
     if (!videoData) return;
+
+    // 🎯 สั่งให้ปุ่มหมุนติ้วๆ ตาม format ที่กด
+    setDownloadingType(format); 
+    setStatus('⏳ กำลังประมวลผลไฟล์... (ไฟล์ใหญ่อาจใช้เวลาสักครู่ กรุณารอจนกว่าหน้าต่าง Save จะเด้งขึ้นมาครับ)');
+
     const title = encodeURIComponent(videoData.title);
     const link = `/api/download?url=${encodeURIComponent(url)}&format=${format}&quality=${quality}&audioQuality=${audioQuality}&cover=${embedCover}&title=${title}`;
+    
+    // บังคับเบราว์เซอร์ดาวน์โหลดไฟล์
     window.location.href = link;
+
+    // 🎯 ตั้งเวลาปลดล็อกปุ่มให้หยุดหมุนหลังจากผ่านไป 8 วินาที
+    setTimeout(() => {
+      setDownloadingType(null);
+      setStatus('✅ สั่งดาวน์โหลดเรียบร้อย! (ถ้าหน้าต่าง Save ยังไม่ขึ้น แสดงว่าเซิร์ฟเวอร์หลังบ้านกำลังรวมไฟล์อยู่ครับ)');
+    }, 8000);
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 flex flex-col items-center p-4 md:p-10">
+    <div className="min-h-screen bg-gray-50 flex flex-col items-center p-4 md:p-10 font-sans">
+      
       {/* 🎯 เมนูนำทาง (Navbar) */}
       <div className="w-full max-w-6xl flex justify-center gap-4 mb-6">
         <Link href="/" className="px-6 py-2 rounded-full bg-red-600 text-white shadow-md font-bold ring-2 ring-red-400">
@@ -66,6 +80,7 @@ export default function Home() {
           🖼️ โหลดหน้าปก (Thumbnail)
         </Link>
       </div>
+
       <div className="bg-white p-6 md:p-8 rounded-2xl shadow-xl w-full max-w-6xl transition-all duration-300">
         <h2 className="text-3xl font-extrabold text-center mb-8 text-gray-900 tracking-tight">
           📥 <span className="text-red-600">YouTube</span> Downloader Pro
@@ -82,9 +97,19 @@ export default function Home() {
           <button
             onClick={checkVideo}
             disabled={loading}
-            className="bg-red-600 hover:bg-red-700 text-white font-bold py-4 px-8 rounded-xl transition duration-150 disabled:bg-gray-400 shrink-0 text-lg shadow-md active:scale-95"
+            className="bg-red-600 hover:bg-red-700 text-white font-bold py-4 px-8 rounded-xl transition duration-150 disabled:bg-gray-400 shrink-0 text-lg shadow-md active:scale-95 flex items-center justify-center min-w-50"
           >
-            {loading ? 'กำลังดึงข้อมูล...' : '🔍 ดูข้อมูลคลิป'}
+            {loading ? (
+              <>
+                <svg className="animate-spin -ml-1 mr-3 h-6 w-6 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                </svg>
+                กำลังโหลด...
+              </>
+            ) : (
+              '🔍 ดูข้อมูลคลิป'
+            )}
           </button>
         </div>
 
@@ -119,10 +144,9 @@ export default function Home() {
                 <p className="text-sm text-gray-600 mb-3 font-semibold">เลือกระดับความคมชัด:</p>
 
                 <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 mb-6">
-                  {/* 🎯 วนลูปข้อมูลใหม่ (ได้ทั้ง res และ size) */}
                   {videoData.resolutions.map((item) => {
                     const res = item.res;
-                    const size = item.size; // 🎯 ดึงขนาดไฟล์มาใช้
+                    const size = item.size; 
                     const isChecked = quality === res.toString();
                     
                     return (
@@ -153,7 +177,6 @@ export default function Home() {
                             )}
                           </div>
 
-                          {/* 🎯 แสดงขนาดไฟล์ (MB) ด้านล่าง */}
                           <span className={`text-xs mt-2 font-medium transition-colors duration-200 ${isChecked ? 'text-blue-200' : 'text-gray-500 group-hover:text-blue-600'}`}>
                             {size}
                           </span>
@@ -166,13 +189,24 @@ export default function Home() {
 
                 <button
                   onClick={() => downloadFile('video')}
-                  className="w-full bg-blue-600 hover:bg-blue-700 text-white font-extrabold py-4 rounded-xl transition duration-150 text-lg shadow-md active:scale-95 flex items-center justify-center gap-2"
+                  disabled={downloadingType === 'video'}
+                  className="w-full bg-blue-600 hover:bg-blue-700 text-white font-extrabold py-4 rounded-xl transition duration-150 text-lg shadow-md active:scale-95 flex items-center justify-center gap-2 disabled:bg-blue-400 min-h-15"
                 >
-                  ⬇️ โหลดวิดีโอ MP4 ({quality}p)
+                  {downloadingType === 'video' ? (
+                    <>
+                      <svg className="animate-spin -ml-1 mr-3 h-6 w-6 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                      </svg>
+                      กำลังประมวลผลวิดีโอ...
+                    </>
+                  ) : (
+                    `⬇️ โหลดวิดีโอ MP4 (${quality}p)`
+                  )}
                 </button>
               </div>
 
-              {/* --- โซนเสียง (MP3) --- (ส่วนนี้ใช้โค้ดเดิมที่คุณปรับสีไว้สวยงามแล้วครับ) */}
+              {/* --- โซนเสียง (MP3) --- */}
               <div className="bg-white p-6 rounded-2xl border border-gray-200 shadow-md">
                 <div className="flex items-center gap-3 mb-5 pb-4 border-b border-gray-100">
                   <span className="text-3xl">🎵</span>
@@ -210,9 +244,20 @@ export default function Home() {
 
                 <button
                   onClick={() => downloadFile('mp3')}
-                  className="w-full bg-green-600 hover:bg-green-700 text-white font-extrabold py-4 rounded-xl transition duration-150 text-lg shadow-md active:scale-95 flex items-center justify-center gap-2"
+                  disabled={downloadingType === 'mp3'}
+                  className="w-full bg-green-600 hover:bg-green-700 text-white font-extrabold py-4 rounded-xl transition duration-150 text-lg shadow-md active:scale-95 flex items-center justify-center gap-2 disabled:bg-green-400 min-h-15"
                 >
-                  ⬇️ โหลดเพลง MP3 ({audioQuality.replace('K', 'kbps')})
+                  {downloadingType === 'mp3' ? (
+                    <>
+                      <svg className="animate-spin -ml-1 mr-3 h-6 w-6 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                      </svg>
+                      กำลังแปลงไฟล์เสียง...
+                    </>
+                  ) : (
+                    `⬇️ โหลดเพลง MP3 (${audioQuality.replace('K', 'kbps')})`
+                  )}
                 </button>
               </div>
 
