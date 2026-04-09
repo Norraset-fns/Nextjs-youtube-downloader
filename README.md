@@ -27,7 +27,9 @@
 
 ### 2. ติดตั้ง Dependencies
 เปิด Terminal ในโฟลเดอร์โปรเจกต์แล้วรันคำสั่ง:
-`npm install`
+```bash
+npm install
+```
 
 # 📥 YouTube Downloader
 A powerful web application for downloading YouTube videos, high-quality audio (MP3), and video thumbnails. Built with Next.js and Tailwind CSS.
